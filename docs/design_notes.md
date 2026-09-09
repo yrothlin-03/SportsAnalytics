@@ -34,3 +34,23 @@ Options si on reste en monoculaire :
 - Construire le module de segmentation en reps + extraction des angles depuis les sorties rtmlib
 - Constituer une petite banque de reps de référence (variée : plusieurs sujets/reps, pas juste un individu)
 - Tester MOMENT en zero-shot sur les premières fenêtres extraites
+
+## Mise à jour — détection de mouvements dangereux (2026-09-09)
+
+**Option 2D/3D n°4 trouvée dans la littérature** : au lieu de reconstruire une vraie 3D, le papier [View-Aware Pose Analysis](https://www.mdpi.com/2673-2688/7/1/7) classifie d'abord le point de vue caméra (face/dos/profil) avec un modèle dédié, puis interprète les angles articulaires selon des seuils de ROM (Range of Motion) biomécaniques propres à ce point de vue. 87% de réussite pour identifier des postures dangereuses, en monoculaire, sans triangulation. À ajouter aux options (a)/(b)/(c) déjà listées plus haut.
+
+**Validation empirique de l'approche caméra fixe** : [Automated Deadlift Techniques Assessment](https://www.mdpi.com/2673-2688/6/7/148) classifie la forme d'un deadlift (dos rond, hyperextension, lever de hanche précoce = les "mouvements dangereux" typiques) à partir d'une séquence de 17 keypoints (MoveNet) en vue latérale fixe, via CNN 2+1D ou LSTM. F1 jusqu'à 1.00 sur la classification de forme, avec seulement 2 sujets et un dataset custom filmé au smartphone. Confirme que l'option (c) (2D + caméra fixe) est viable pour ce type de tâche précis.
+
+**Proposition pour le modèle "mouvements dangereux"** — approche hybride plutôt que 100% zero-shot :
+1. Garder l'embedding foundation model (MOMENT) comme signal général "à quel point cette rep est statistiquement inhabituelle" par rapport à la banque de référence — capte l'imprévu, sans labels.
+2. Ajouter en parallèle des règles biomécaniques explicites calculées sur les angles articulaires (flexion lombaire excessive, valgus du genou, décélération brutale) — capte les patterns dangereux *connus*, interprétable, pas de boîte noire pour un usage sécurité.
+3. Envisager une petite tête supervisée (LSTM/CNN léger, comme le papier deadlift) entraînée sur une poignée de reps labellisées si on a le temps de filmer/labelliser — la littérature montre que même 2 sujets suffisent à un F1 très élevé sur ce type de classification de forme.
+
+## Datasets — mouvements compétitifs (recherche)
+
+- [AthletePose3D](https://github.com/calvinyeungck/AthletePose3D) — 12 mouvements sportifs (athlétisme, patinage artistique, course), 8 athlètes niveau national/international, multi-caméra synchronisé, ~1.3M frames, 3D par mocap optique marqueurs. Pas de musculation, mais bonne référence méthodologique multi-vues.
+- [AthleticsPose](https://github.com/SZucchini/AthleticsPose) — 8 épreuves d'athlétisme (sprint, haies, lancers...), 23 athlètes compétitifs, 8 caméras synchronisées, évalue spécifiquement la précision de l'estimation 3D **monoculaire** sur mouvements sportifs réels — directement utile pour trancher la question 2D/3D.
+- **SportsPose** (cité dans une revue de littérature) — 176 000 poses 3D, 24 athlètes, dataset généraliste multi-sports.
+- **Injury Ski II** — dataset de chutes/blessures annotées en ski alpin de compétition (1463 frames, skieurs World Cup) — utile comme exemple de méthodologie pour construire un dataset "mouvement dangereux" propre à un sport, pas réutilisable directement pour la musculation.
+
+**Constat général** : pas de gros dataset public "mouvements compétitifs de musculation" trouvé — la littérature confirme une pénurie de datasets annotés spécifiques à chaque discipline. Les papiers sur la musculation (deadlift, powerlifting judging) utilisent tous des datasets custom filmés par les auteurs, souvent avec très peu de sujets. Ça valide l'approche déjà prévue : filmer notre propre petite banque de référence plutôt que chercher un gros dataset externe pour la musculation spécifiquement.
